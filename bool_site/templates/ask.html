@@ -1,0 +1,63 @@
+{% extends "layouts/base.html" %}
+{%load static%}
+
+{% block content %}
+
+<div class="ask_title">Заявка № {{ ask_id }}</div>
+
+<div class="container">
+    <div class="input-section">
+        <label for="a">Введите значение первого операнда:</label>
+        <select id="a" name="a">
+            <option value="0" {% if first == 0 %}selected{% endif %}>0</option>
+            <option value="1" {% if first == 1 %}selected{% endif %}>1</option>
+        </select>
+    </div>
+
+    <div class="operation">
+        <div class="operation-title">Операция №1. {{ ask1_operation.description }}</div>
+        <div class="operation-content">
+            <img src="{{ ask1_operation.photo }}" alt="OR operation">
+            <label for="b1">Введите значение второго операнда:</label>
+            <select id="b1" name="b1">
+                <option value="0" {% if ask1.second == 0 %}selected{% endif %}>0</option>
+                <option value="1" {% if ask1.second == 1 %}selected{% endif %}>1</option>
+            </select>
+            <span class="result">Результат = {{ ask1.resault }}</span>
+        </div>
+    </div>
+
+    <div class="operation">
+        <div class="operation-title">Операция №2. {{ ask2_operation.description }}</div>
+        <div class="operation-content">
+            <img src="{{ ask2_operation.photo }}" alt="AND operation">
+            <label for="b2">Введите значение второго операнда:</label>
+            <select id="b2" name="b2">
+                <option value="0" {% if ask2.second == 0 %}selected{% endif %}>0</option>
+                <option value="1" {% if ask2.second == 1 %}selected{% endif %}>1</option>
+            </select>
+            <span class="result">Результат = {{ ask2.resault }}</span>
+        </div>
+    </div>
+
+    <div class="operation">
+        <div class="operation-title">Операция №3. {{ ask3_operation.description }}</div>
+        <div class="operation-content">
+            <img src="{{ ask3_operation.photo }}" alt="XOR operation">
+            <label for="b3">Введите значение второго операнда:</label>
+            <select id="b3" name="b3">
+                <option value="0" {% if ask3.second == 0 %}selected{% endif %}>0</option>
+                <option value="1" {% if ask3.second == 1 %}selected{% endif %}>1</option>
+            </select>
+            <span class="result">Результат = {{ ask3.resault }}</span>
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button type="submit">Вычислить</button>
+    </div>
+</div>
+
+
+
+{% endblock %}

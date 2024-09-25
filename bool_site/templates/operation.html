@@ -1,0 +1,37 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-desc d-flex justify-content-center align-items-center" style="min-height: 100svh;">
+    <div class="module">
+        <div class="header-section">
+            <div class="header-bg">
+                <h1 class="title">{{ operation.name }}</h1>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <div class="section">
+                <h3 class="subtitle">Таблица истиности</h3>
+                <div class="truth-table">
+                    <img src="{{ operation.photot }}" alt="Truth Table" class="image" style="height: 153px">
+                </div>
+            </div>
+
+            <div class="section">
+                <h3 class="subtitle">Логическая диаграмма</h3>
+                <div class="logic-diagram">
+                    <img src="{{ operation.photol }}" alt="Logic Gate Diagram" class="image" style="height: 217px">
+                </div>
+            </div>
+
+            <div class="section">
+                <h3 class="subtitle">Диаграмма Вена</h3>
+                <div class="venn-diagram">
+                    <img src="{{ operation.photo }}" alt="Venn Diagram" class="image" style="height: 145px">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
