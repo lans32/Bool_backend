@@ -1,4 +1,4 @@
-URL = 'http://192.168.51.76:9000/bool/{}.gif'
+URL = 'http://127.0.0.1:9000/bool/{}.gif'
 
 OPERATIONS = [
     {
@@ -24,6 +24,15 @@ OPERATIONS = [
         'name': 'Исключающие "ИЛИ"',
         'description': 'Оператор XOR',
         'photo': URL.format('3'),
+        'photot': URL.format('xort'),
+        'photol': URL.format('xorl'),
+    },
+
+    {
+        'id': 4, 
+        'name': 'Импликация',
+        'description': 'Оператор A → B',
+        'photo': URL.format('4'),
         'photot': URL.format('xort'),
         'photol': URL.format('xorl'),
     }

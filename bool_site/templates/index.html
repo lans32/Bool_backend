@@ -3,10 +3,31 @@
 
 {% block content %}
 
-<div class="row mt-3">
-    <div class="col-1"></div>
-    <div class="col-8">
-        <div class="row">
+
+<div class="ask_title d-flex align-items-center justify-content-between">
+    <!-- Calculator Button (Left Aligned) -->
+    <div class="text-center position-relative">
+        <a href="{% url 'ask' ask_id %}" class="btn btn-outline-warning">
+            <img src="{% static 'img/calc_icon.svg' %}" height="50px" width="50px" alt="Calculator">
+        </a>
+        <span class="badge bg-warning badge-position">{{ count }}</span>
+    </div>
+
+    <!-- Search Form (Right Aligned) -->
+    <div class="input-group mb-3" style="flex: 1; justify-content: flex-end;">
+        <form class="d-flex justify-content-end" method="GET" action="{% url 'index' %}" role="search">
+            <input class="form-control me-2" type="search" name="operation" placeholder="Введите название" style="width: 250px; height: 40px" value="{{ query|default:'' }}">
+            <button type="submit" class="btn btn-search btn-fix ps-0" style="height: 40px">
+                <img src="{% static 'img/search.png' %}" height="30px" width="30px">
+            </button>
+        </form>
+    </div>
+</div>
+
+
+<div class="row mt-3 justify-content-center">
+    <div class="col-12 col-md-8">
+        <div class="row justify-content-center">
             {% for operation in operations %}
             <div class="col-md-4 mb-3">
                 <div class="card">
@@ -24,9 +45,6 @@
                         </div>
                     </div>
                     
-                    <!-- Description section -->
-
-
                     <!-- Image section -->
                     <div class="card_content">
                         <img src="{{ operation.photo }}" class="card_image" alt="{{ operation.name }}">
@@ -52,26 +70,12 @@
             {% endfor %}
         </div>
     </div>
+</div>
+
 
 
     <!-- Sidebar for search -->
-    <div class="col-3">
-        <div class="input-group mb-3">
-            <form class="d-flex" method="GET" action="{% url 'index' %}" role="search">
-                <input class="form-control me-2" type="search" name="operation" placeholder="Введите название" style="width: 250px; height: 40px" value="{{ query|default:'' }}">
-                <button type="submit" class="btn btn-search btn-fix ps-0" style="height: 40px">
-                    <img src="{% static 'img/search.png' %}" height="30px" width="30px">
-                </button>
-            </form>
-        </div>
-        <!-- Add a calculator icon button like in the image -->
-        <div class="text-center mt-3 position-relative">
-            <a href="{% url 'ask' ask_id %}" class="btn btn-outline-warning">
-                <img src="{% static 'img/calc_icon.svg' %}" height="150px" width="150px" alt="Calculator">
-            </a>
-            <span class="badge bg-warning badge-position">{{ count }}</span>
-        </div>               
-    </div>
+    
 </div>
 
 {% endblock %}
