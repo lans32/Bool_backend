@@ -5,9 +5,7 @@ OPERATIONS = [
         'id': 1,
         'name': 'Дизъюнкция',
         'description': 'Оператор OR',
-        'photo': URL.format('1'),
-        'photot': URL.format('ort'),
-        'photol': URL.format('orl'),
+        'photo': 'http://127.0.0.1:9000/bool/1.gif',
     },
 
     {
@@ -15,8 +13,6 @@ OPERATIONS = [
         'name': 'Конъюнкция',
         'description': 'Оператор AND',
         'photo': URL.format('2'),
-        'photot': URL.format('andt'),
-        'photol': URL.format('andl'),
     }, 
 
     {
@@ -24,8 +20,6 @@ OPERATIONS = [
         'name': 'Исключающие "ИЛИ"',
         'description': 'Оператор XOR',
         'photo': URL.format('3'),
-        'photot': URL.format('xort'),
-        'photol': URL.format('xorl'),
     },
 
     {
@@ -33,8 +27,6 @@ OPERATIONS = [
         'name': 'Импликация',
         'description': 'Оператор A → B',
         'photo': URL.format('4'),
-        'photot': URL.format('xort'),
-        'photol': URL.format('xorl'),
     }
 ]
 

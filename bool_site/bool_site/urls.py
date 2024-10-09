@@ -22,5 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.index, name="index"),
     path('operations/<int:operation_id>/', views.operation, name="operation"),
-    path('ask/<int:ask_id>', views.ask, name="ask")
+    path('ask/<int:ask_id>', views.ask, name="ask"),
+    path('add-to-ask/<int:operation_id>', views.add_operation_to_ask, name="add_operation_to_ask"),
+    path('delete-ask/<int:ask_id>', views.delete_ask, name="delete_ask")
 ]

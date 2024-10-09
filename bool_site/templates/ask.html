@@ -1,61 +1,43 @@
 {% extends "layouts/base.html" %}
 {%load static%}
+{% load custom_filters %}
 
 {% block content %}
 
-<div class="ask_title">Заявка № {{ ask_id }}</div>
+<div class="ask_title">Заявка № {{ ask_number }}</div>
 
 <div class="container">
     <div class="input-section">
         <label for="a">Введите значение первого операнда:</label>
         <select id="a" name="a">
-            <option value="0" {% if first == 0 %}selected{% endif %}>0</option>
-            <option value="1" {% if first == 1 %}selected{% endif %}>1</option>
+            <option value=False {% if ask.first_operand == False %}selected{% endif %}>0</option>
+            <option value=True {% if ask.first_operand == True %}selected{% endif %}>1</option>
         </select>
     </div>
-
+    
+    {% for operation in selected_operations %}
     <div class="operation">
-        <div class="operation-title">Операция №1. {{ ask1_operation.description }}</div>
+        <div class="operation-title">Операция {{ forloop.counter }}: {{ operation.description }}</div>
         <div class="operation-content">
-            <img src="{{ ask1_operation.photo }}" alt="OR operation">
+            <img src="{{ operation.photo }}" alt="...">
             <label for="b1">Введите значение второго операнда:</label>
-            <select id="b1" name="b1">
-                <option value="0" {% if ask1.second == 0 %}selected{% endif %}>0</option>
-                <option value="1" {% if ask1.second == 1 %}selected{% endif %}>1</option>
-            </select>
+            <select class="form-control" id="second-operands-{{ operation.id }}" name="second-operands">
+                <option value="False" {% if second_operands|index:operation.id == False %}selected{% endif %}>0</option>
+                <option value="True" {% if second_operands|index:operation.id == True %}selected{% endif %}>1</option>
+            </select>                
             <span class="result">Результат = </span>
         </div>
     </div>
-
-    <div class="operation">
-        <div class="operation-title">Операция №2. {{ ask2_operation.description }}</div>
-        <div class="operation-content">
-            <img src="{{ ask2_operation.photo }}" alt="AND operation">
-            <label for="b2">Введите значение второго операнда:</label>
-            <select id="b2" name="b2">
-                <option value="0" {% if ask2.second == 0 %}selected{% endif %}>0</option>
-                <option value="1" {% if ask2.second == 1 %}selected{% endif %}>1</option>
-            </select>
-            <span class="result">Результат = </span>
-        </div>
-    </div>
-
-    <div class="operation">
-        <div class="operation-title">Операция №3. {{ ask3_operation.description }}</div>
-        <div class="operation-content">
-            <img src="{{ ask3_operation.photo }}" alt="XOR operation">
-            <label for="b3">Введите значение второго операнда:</label>
-            <select id="b3" name="b3">
-                <option value="0" {% if ask3.second == 0 %}selected{% endif %}>0</option>
-                <option value="1" {% if ask3.second == 1 %}selected{% endif %}>1</option>
-            </select>
-            <span class="result">Результат = </span>
-        </div>
-    </div>
+    {% endfor %}
 
     <div class="button-container">
         <button type="submit">Вычислить</button>
     </div>
+
+    <form method="POST" action="{% url "delete_ask" ask.id %}" class="button-container">
+        {% csrf_token %}
+        <button class="del-btn">Удалить заявку</button>
+    </form>
 </div>
 
 
