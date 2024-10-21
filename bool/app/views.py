@@ -221,6 +221,7 @@ class AskList(APIView):
         ]
 
         return Response(serialized_asks)
+    
 
     def put(self, request, format=None):
         user = UserSingleton.get_instance()
@@ -269,6 +270,9 @@ class AskDetail(APIView):
 
             updated_data = request.data.copy()
             ask.completed_at = timezone.now()
+
+            for ask_operation in ask.askoperation_set.all():
+                ask_operation.calculate_result()
             
             serializer = self.serializer_class(ask, data=updated_data, partial=True)
             if serializer.is_valid():
@@ -303,7 +307,7 @@ class AskOperationDetail(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
     def delete(self, request, ask_id, operation_id, format=None):
         ask = get_object_or_404(Ask, pk=ask_id)
         ask_operation = get_object_or_404(self.model_class, ask=ask, operation__id=operation_id)

@@ -11,9 +11,14 @@ class Operation(models.Model):
         ("d", "Deleted")
     ]
     name = models.CharField(max_length=255)
+    operator_name = models.TextField()
     description = models.TextField()
     photo = models.URLField(blank=True, null=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=7, default='a')
+    value_0 = models.BooleanField(default=False)
+    value_A = models.BooleanField(default=False)
+    value_B = models.BooleanField(default=False)
+    value_AB = models.BooleanField(default=False)
 
     objects = OperationManager()
 
@@ -61,8 +66,25 @@ class AskOperation(models.Model):
     ask = models.ForeignKey(Ask, on_delete=models.CASCADE)
     operation = models.ForeignKey(Operation, on_delete=models.CASCADE)
     second_operand = models.BooleanField(default=False)
+    result = models.BooleanField(null=True, default=None)
+
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['ask', 'operation'], name='unique_ask_operation')
         ]
+    
+    def calculate_result(self):
+        first_operand = self.ask.first_operand
+        second_operand = self.second_operand
+
+        if first_operand == 0 and second_operand == 0:
+            self.result = self.operation.value_0
+        elif first_operand == 1 and second_operand == 0:
+            self.result = self.operation.value_A
+        elif first_operand == 0 and second_operand == 1:
+            self.result = self.operation.value_B
+        elif first_operand == 1 and second_operand == 1:
+            self.result = self.operation.value_AB
+
+        self.save()

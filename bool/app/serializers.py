@@ -5,17 +5,29 @@ from app.models import Operation, Ask, AskOperation
 class OperationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Operation
-        fields = ['id', 'name', 'description', 'photo', 'status']
+        exclude = ['status']
+
+class OperationCompactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Operation
+        fields = ['id', 'operator_name', 'photo']
 
 class AskOperationSerializer(serializers.ModelSerializer):
-    operation = OperationSerializer(read_only=True)
+    operation = OperationCompactSerializer(read_only=True)
     
     class Meta:
         model = AskOperation
         fields = ['id', 'ask', 'operation', 'second_operand']
 
+class AskOperationCompactSerializer(serializers.ModelSerializer):
+    operation = OperationCompactSerializer(read_only=True)
+    
+    class Meta:
+        model = AskOperation
+        fields = ['operation', 'second_operand', 'result']
+
 class AskSerializer(serializers.ModelSerializer):
-    operations = AskOperationSerializer(many=True, read_only=True, source='askoperation_set')
+    operations = AskOperationCompactSerializer(many=True, read_only=True, source='askoperation_set')
 
     class Meta:
         model = Ask
