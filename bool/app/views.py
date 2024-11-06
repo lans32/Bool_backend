@@ -1,33 +1,36 @@
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, action
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
-from django.http import Http404
+from django.utils import timezone
+from django.http import Http404, HttpResponse, JsonResponse
 from .models import Operation, Ask, AskOperation
-from .serializers import OperationSerializer, AskSerializer, AskOperationSerializer, UserSerializer
+from .serializers import *
 from django.conf import settings
 from minio import Minio
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from rest_framework.response import *
-from django.utils import timezone
-from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login, logout
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated
+from django.views.decorators.csrf import csrf_exempt
+from app.permissions import *
+import redis
+import uuid
 
-class UserSingleton:
-    _instance = None
+session_storage = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
 
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            try:
-                cls._instance = User.objects.get(id=2)
-            except User.DoesNotExist:
-                cls._instance = None
-        return cls._instance
-
-    @classmethod
-    def clear_instance(cls, user):
-        pass
+def method_permission_classes(classes):
+    def decorator(func):
+        def decorated_func(self, *args, **kwargs):
+            self.permission_classes = classes        
+            self.check_permissions(self.request)
+            return func(self, *args, **kwargs)
+        return decorated_func
+    return decorator
 
 
 def process_file_upload(file_object: InMemoryUploadedFile, client, image_name):
@@ -54,7 +57,9 @@ def add_pic(new_operation, pic):
     if 'error' in result:
         return {"error": result['error']}
 
-    return result 
+    return result
+
+ 
 
 # View для Operation (операции)
 class OperationList(APIView):
@@ -66,20 +71,25 @@ class OperationList(APIView):
         operations = self.model_class.objects.filter(status='a')
         if operation_name:
             operations = operations.filter(name__icontains=operation_name)
-        user = UserSingleton.get_instance()
+        user = request.user
         draft_ask_id = None
+        count = 0
         if user:
             draft_ask = Ask.objects.filter(creator=user, status='dr').first()
             if draft_ask:
                 draft_ask_id = draft_ask.id
+                count = Ask.objects.get_total_operations(draft_ask)
 
         serializer = self.serializer_class(operations, many=True)
         response_data = {
             'operations': serializer.data,
-            'draft_ask_id': draft_ask_id 
+            'draft_ask_id': draft_ask_id,
+            'count': count 
         }
         return Response(response_data)
   
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
     def post(self, request, format=None):
         pic = request.FILES.get("photo")
         data = request.data.copy()
@@ -96,6 +106,31 @@ class OperationList(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class OperationAddToDraft(APIView):
+    @swagger_auto_schema()
+    def post(self, request, pk, format=None):
+        user = request.user
+        if not user:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        operation = get_object_or_404(Operation, pk=pk)
+        draft_ask = Ask.objects.filter(creator=user, status='dr').first()
+
+        if not draft_ask:
+            draft_ask = Ask.objects.create(
+                first_operand=False,
+                creator=user,
+                status='dr',
+                created_at=timezone.now()
+            )
+            draft_ask.save()
+
+        if AskOperation.objects.filter(ask=draft_ask, operation=operation).exists():
+            return Response(data={"error": "Операция уже добавлено в черновик."}, status=status.HTTP_400_BAD_REQUEST)
+
+        AskOperation.objects.create(ask=draft_ask, operation=operation, second_operand=False)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 class OperationDetail(APIView):
     model_class = Operation
     serializer_class = OperationSerializer
@@ -111,7 +146,9 @@ class OperationDetail(APIView):
         elif request.path.endswith('/draft/'):
             return self.add_to_draft(request, pk)
         raise Http404
-
+    
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
     def update_image(self, request, pk):
         operation = get_object_or_404(self.model_class, pk=pk)
         pic = request.FILES.get("photo")
@@ -140,9 +177,10 @@ class OperationDetail(APIView):
         operation.save()
 
         return Response({"message": "Изображение успешно обновлено.", "photo_url": pic_url}, status=status.HTTP_200_OK)
-
+    
+    """@swagger_auto_schema(request_body=serializer_class)
     def add_to_draft(self, request, pk):
-        user = UserSingleton.get_instance()
+        user = request.user
         if not user:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
@@ -162,8 +200,10 @@ class OperationDetail(APIView):
             return Response(data={"error": "Операция уже добавлено в черновик."}, status=status.HTTP_400_BAD_REQUEST)
 
         AskOperation.objects.create(ask=draft_ask, operation=operation, second_operand=False)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
+        return Response(status=status.HTTP_204_NO_CONTENT)"""
+    
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
     def put(self, request, pk, format=None):
         operation = get_object_or_404(self.model_class, pk=pk)
         serializer = self.serializer_class(operation, data=request.data, partial=True)
@@ -172,6 +212,7 @@ class OperationDetail(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @method_permission_classes([IsManager])
     def delete(self, request, pk, format=None):
         operation = get_object_or_404(self.model_class, pk=pk)
         if operation.photo:
@@ -195,17 +236,24 @@ class OperationDetail(APIView):
 # View для Ask (заявки)
 class AskList(APIView):
     model_class = Ask
-    serializer_class = AskSerializer
+    serializer_class = AskCompactSerializer
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, format=None):
-        user = UserSingleton.get_instance()
+        user = request.user
 
         # Получаем фильтры из запросов
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
         status = request.query_params.get('status')
 
-        asks = self.model_class.objects.filter(creator=user).exclude(status__in=['dr', 'del'])
+        if user.is_authenticated:
+            if user.is_staff:
+                asks = self.model_class.objects.all()
+            else:
+                asks = self.model_class.objects.filter(creator=user).exclude(status__in=['dr', 'del'])
+        else:
+            return Response({"error": "Вы не авторизованы"}, status=401)
 
         if date_from:
             asks = asks.filter(created_at__gte=date_from)
@@ -216,15 +264,20 @@ class AskList(APIView):
             asks = asks.filter(status=status)
 
         serialized_asks = [
-            {**self.serializer_class(ask).data, 'creator': ask.creator.username, 'moderator': ask.moderator.username}
+            {
+                **self.serializer_class(ask).data, 
+                'creator': ask.creator.email, 
+                'moderator': ask.moderator.email if ask.moderator else None
+             }
             for ask in asks
         ]
 
         return Response(serialized_asks)
     
-
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsAdmin, IsManager])
     def put(self, request, format=None):
-        user = UserSingleton.get_instance()
+        user = request.user
         required_fields = ['first_operand']
         for field in required_fields:
             if field not in request.data or request.data[field] is None:
@@ -248,41 +301,89 @@ class AskList(APIView):
 class AskDetail(APIView):
     model_class = Ask
     serializer_class = AskSerializer
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, format=None):
         ask = get_object_or_404(self.model_class, pk=pk)
+        if ask.status == 'del':
+            return Response({"detail": "Эта заявка удалена и недоступна для просмотра."}, status=403)
         serializer = self.serializer_class(ask)
         data = serializer.data
-        data['creator'] = ask.creator.username
+        print(ask.creator)
+        data['creator'] = ask.creator.email
         if ask.moderator:
-            data['moderator'] = ask.moderator.username 
+            data['moderator'] = ask.moderator.email
 
         return Response(data)
-
+    
     def put(self, request, pk, format=None):
-        ask = get_object_or_404(self.model_class, pk=pk)
-        user = UserSingleton.get_instance()
+        # Получаем полный путь запроса
+        full_path = request.path
 
+        # Проверяем, заканчивается ли путь на /form/, /complete/ или /edit/
+        if full_path.endswith('/form/'):
+            return self.put_creator(request, pk)
+        elif full_path.endswith('/complete/'):
+            return self.put_moderator(request, pk)
+        elif full_path.endswith('/edit/'):
+            return self.put_edit(request, pk)
+
+        return Response({"error": "Неверный путь"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # PUT для создателя: формирование заявки
+    def put_creator(self, request, pk, format=None):
+        ask = get_object_or_404(self.model_class, pk=pk)
+        user = request.user
+
+        if user == ask.creator:
+                
+            if 'status' in request.data and request.data['status'] == 'f':
+                ask.formed_at = timezone.now()
+                updated_data = request.data.copy()
+
+                serializer = self.serializer_class(ask, data=updated_data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({"error": "Создатель может только формировать заявку."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Отказано в доступе"}, status=status.HTTP_403_FORBIDDEN)
+    
+    # PUT для модератора: завершение или отклонение заявки
+    @method_permission_classes([IsManager])
+    def put_moderator(self, request, pk):
+        ask = get_object_or_404(self.model_class, pk=pk)
+        user = request.user
+        
         if 'status' in request.data:
             status_value = request.data['status']
-            if status_value not in ['f', 'r']:
-                return Response({"error": "Неверный статус."}, status=status.HTTP_400_BAD_REQUEST)
 
-            updated_data = request.data.copy()
-            ask.completed_at = timezone.now()
+            # Модератор может завершить ('c') или отклонить ('r') заявку
+            if status_value in ['c', 'r']:
+                if ask.status != 'f':
+                    return Response({"error": "Заявка должна быть сначала сформирована."}, status=status.HTTP_403_FORBIDDEN)
 
-            for ask_operation in ask.askoperation_set.all():
-                ask_operation.calculate_result()
-            
-            serializer = self.serializer_class(ask, data=updated_data, partial=True)
-            if serializer.is_valid():
-                serializer.save(moderator=user)
-                return Response(serializer.data)
+                if status_value == 'c':
+                    ask.completed_at = timezone.now()
+                    updated_data = request.data.copy()
 
-        # Если статус не был передан, пробуем обновить остальные данные
+                serializer = self.serializer_class(ask, data=updated_data, partial=True)
+                if serializer.is_valid():
+                    serializer.save(moderator=user)
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Модератор может только завершить или отклонить заявку."}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(request_body=serializer_class)
+    def put_edit(self, request, pk):
+        ask = get_object_or_404(self.model_class, pk=pk)
+
         serializer = self.serializer_class(ask, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save(moderator=user)
+            serializer.save()
             return Response(serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -290,7 +391,12 @@ class AskDetail(APIView):
     # Удаление заявки
     def delete(self, request, pk, format=None):
         ask = get_object_or_404(self.model_class, pk=pk)
+        if ask.creator != request.user:
+            return Response({"detail": "Только создатель может удалить заявку."}, status=403)
+        if ask.status != 'dr':
+            return Response({"detail": "Данную заявку нельзя удалить."}, status=403)
         ask.status = 'del'  # Мягкое удаление
+        ask.formed_at = timezone.now()
         ask.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
@@ -298,6 +404,7 @@ class AskOperationDetail(APIView):
     model_class = AskOperation
     serializer_class = AskOperationSerializer
 
+    @swagger_auto_schema(request_body=serializer_class)
     def put(self, request, ask_id, operation_id, format=None):
         ask = get_object_or_404(Ask, pk=ask_id)
         ask_operation = get_object_or_404(self.model_class, ask=ask, operation__id=operation_id)
@@ -310,58 +417,87 @@ class AskOperationDetail(APIView):
     
     def delete(self, request, ask_id, operation_id, format=None):
         ask = get_object_or_404(Ask, pk=ask_id)
-        ask_operation = get_object_or_404(self.model_class, ask=ask, operation__id=operation_id)
-        
+        ask_operation = get_object_or_404(self.model_class, ask=ask, operation__id=operation_id)        
         ask_operation.delete()
         return Response({"message": "Операция успешно удалено из заявки"}, status=status.HTTP_204_NO_CONTENT)
 
-class UserView(APIView):
-    def post(self, request, action, format=None):
-        if action == 'register':
-            serializer = UserSerializer(data=request.data)
-            if serializer.is_valid():
-                validated_data = serializer.validated_data
-                user = User(
-                    username=validated_data['username'],
-                    email=validated_data['email']
-                )
-                user.set_password(request.data.get('password'))
-                user.save()
-                return Response({
-                    'message': 'Регистрация прошла успешно'
-                }, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class UserViewSet(ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    model_class = CustomUser
 
-        elif action == 'authenticate':
-            username = request.data.get('username')
-            password = request.data.get('password')
-            user = authenticate(request, username=username, password=password)
-            
-            if user is not None:
-                user_data = UserSerializer(user).data
-                return Response({
-                    'message': 'Аутентификация успешна',
-                    'user': user_data
-                }, status=200)
-            
-            return Response({'error': 'Неправильное имя пользователя или пароль'}, status=400)
+    # def get_permissions(self):
+    #     # Удаляем ненужные проверки, чтобы любой пользователь мог обновить свой профиль
+    #     if self.action == 'create':
+    #         return [AllowAny()]
+    #     return [IsAuthenticated()]
 
-        elif action == 'logout':
-            return Response({'message': 'Вы вышли из системы'}, status=200)
+    def get_permissions(self):
+        if self.action in ['create']:
+            permission_classes = [AllowAny]
+        elif self.action in ['list']:
+            permission_classes = [IsAdmin | IsManager]
+        else:
+            permission_classes = [IsAdmin]
+        return [permission() for permission in permission_classes]
 
-        return Response({'error': 'Некорректное действие'}, status=400)
+    def create(self, request):
+        if self.model_class.objects.filter(email=request.data['email']).exists():
+            return Response({'status': 'Exist'}, status=400)
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            self.model_class.objects.create_user(
+                email=serializer.data['email'],
+                password=serializer.data['password'],
+                is_superuser=serializer.data['is_superuser'],
+                is_staff=serializer.data['is_staff']
+            )
+            return Response({'status': 'Success'}, status=200)
+        return Response({'status': 'Error', 'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     # Обновление данных профиля пользователя
-    def put(self, request, action, format=None):
-        if action == 'profile':
-            user = UserSingleton.get_instance()
-            if user is None:
-                return Response({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
-            
-            serializer = UserSerializer(user, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({'message': 'Профиль обновлен', 'user': serializer.data}, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=False, methods=['put'], permission_classes=[AllowAny])
+    def profile(self, request, format=None):
+        user = request.user
+        if user is None:
+            return Response({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response({'error': 'Некорректное действие'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.serializer_class(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Профиль обновлен', 'user': serializer.data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@authentication_classes([])
+@swagger_auto_schema(method='post', request_body=UserSerializer)
+@api_view(['Post'])
+@csrf_exempt
+@permission_classes([AllowAny])
+def login_view(request):
+    username = request.data["email"] 
+    password = request.data["password"]
+
+    user = authenticate(request, email=username, password=password)
+    if user is not None:
+        random_key = str(uuid.uuid4())
+        session_storage.set(random_key, username)
+        response = HttpResponse("{'status': 'ok'}")
+        response.set_cookie("session_id", random_key)
+        return response
+        # login(request, user)
+        # return HttpResponse("{'status': 'ok'}")
+    else:
+        return HttpResponse("{'status': 'error', 'error': 'login failed'}")
+
+def logout_view(request):
+    session_id = request.COOKIES.get("session_id")
+
+    if session_id:
+        session_storage.delete(session_id)
+        response = HttpResponse("{'status': 'ok'}")
+        response.delete_cookie("session_id")
+        return response
+    else:
+        return HttpResponse("{'status': 'error', 'error': 'no session found'}")
+    # logout(request)
+    # return Response({'status': 'Success'})
