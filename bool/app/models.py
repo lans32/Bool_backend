@@ -1,24 +1,38 @@
 from django.db import models
-from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 
 class NewUserManager(UserManager):
-    def create_user(self,email,password=None, **extra_fields):
+    def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('User must have an email address')
         
-        email = self.normalize_email(email) 
-        user = self.model(email=email, **extra_fields) 
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
         user.set_password(password)
-        user.save(using=self.db)
+        user.save(using=self._db)
         return user
 
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(email, password, **extra_fields)
+
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(("email адрес"), unique=True)
-    password = models.CharField(verbose_name="Пароль")    
-    is_staff = models.BooleanField(default=False, verbose_name="Является ли пользователь менеджером?")
-    is_superuser = models.BooleanField(default=False, verbose_name="Является ли пользователь админом?")
-    
+    email = models.EmailField("email адрес", unique=True)
+    password = models.CharField(verbose_name="Пароль", max_length=128)    
+    is_staff = models.BooleanField(default=False, null=True, verbose_name="Является ли пользователь менеджером?")
+    is_superuser = models.BooleanField(default=False, null=True, verbose_name="Является ли пользователь админом?")
+    is_active = models.BooleanField(default=True, null=True, verbose_name="Активен ли пользователь?")
+    date_joined = models.DateTimeField(auto_now_add=True, verbose_name="Дата регистрации")
+    last_login = models.DateTimeField(null=True, verbose_name="Последний вход")
+
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='customuser_set',
@@ -37,8 +51,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     )
 
     USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
 
     objects = NewUserManager()
+
+    def __str__(self):
+        return self.email
 
 class OperationManager(models.Manager):
     def get_one_operation(self, operation_id):

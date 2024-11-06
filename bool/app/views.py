@@ -340,6 +340,9 @@ class AskDetail(APIView):
             if 'status' in request.data and request.data['status'] == 'f':
                 ask.formed_at = timezone.now()
                 updated_data = request.data.copy()
+                
+                for ask_operation in ask.askoperation_set.all():
+                    ask_operation.calculate_result()
 
                 serializer = self.serializer_class(ask, data=updated_data, partial=True)
                 if serializer.is_valid():
