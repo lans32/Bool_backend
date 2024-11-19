@@ -71,6 +71,22 @@ class OperationList(APIView):
         operations = self.model_class.objects.filter(status='a')
         if operation_name:
             operations = operations.filter(name__icontains=operation_name)
+
+        draft_ask_id = None
+        count = 0
+
+        # Check if the user is authenticated
+        if request.user.is_authenticated:
+            user = request.user
+            # Fetch the draft ask for the authenticated user, if it exists
+            draft_ask = Ask.objects.filter(creator=user, status='dr').first()
+            if draft_ask:
+                draft_ask_id = draft_ask.id
+                count = Ask.objects.get_total_operations(draft_ask)
+        else:
+            user = None 
+           
+        '''
         user = request.user
         draft_ask_id = None
         count = 0
@@ -79,6 +95,7 @@ class OperationList(APIView):
             if draft_ask:
                 draft_ask_id = draft_ask.id
                 count = Ask.objects.get_total_operations(draft_ask)
+                '''
 
         serializer = self.serializer_class(operations, many=True)
         response_data = {
