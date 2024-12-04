@@ -8,20 +8,21 @@ def session_middleware(get_response):
         # Code to be executed for each request before
         # the view (and later middleware) are called.
 
+        print("Session middleware: Before processing")
         ssid = request.COOKIES.get("session_id")
         if ssid and session_storage.exists(ssid):
             email = session_storage.get(ssid).decode("utf-8")
+            print(f"Email found in session: {email}")
             request.user = CustomUser.objects.get(email=email)
         else:
-            request.user = (
-                None  # Устанавливаем пользователя в None, если сессия недействительна
-            )
-
+            print("No valid session found.")
+            request.user = None
+        print(f"request.user = {getattr(request.user, 'email', None)}")
         response = get_response(request)
 
         # Code to be executed for each request/response after
         # the view is called.
-
+        print(f"Session middleware: After processing, request.user = {getattr(request.user, 'email', None)}")
         return response
 
     return middleware

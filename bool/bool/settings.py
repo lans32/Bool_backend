@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'app',
     'drf_yasg',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -52,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.session_middleware',
+    #'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'bool.urls'
@@ -150,3 +152,18 @@ MINIO_USE_SSL = False
 
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = 6379
+SESSION_COOKIE_AGE = 1209600
+
+#CORS_ALLOWED_ORIGINS = [
+#    'http://192.168.31.50:5173',
+#    'http://localhost:5173',
+#]
+#CORS_ALLOW_CREDENTIALS = True
+
+CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+]

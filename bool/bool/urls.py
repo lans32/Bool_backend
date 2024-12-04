@@ -34,11 +34,13 @@ urlpatterns = [
     path('api/asks/<int:pk>/complete/', views.AskDetail.as_view(), name='ask-detail-complete'),
     path('api/asks/<int:pk>/', views.AskDetail.as_view(), name='ask-detail'),
     path('api/asks/<int:ask_id>/operations/<int:operation_id>/', views.AskOperationDetail.as_view(), name='ask-operation-detail'),
-    path('login/',  views.login_view, name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    path('users/auth/', views.UserViewSet.as_view({'post': 'create'}), name='user-register'),
-    path('users/profile/', views.UserViewSet.as_view({'put': 'profile'}), name='user-profile'),
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('api/login/',  views.login_view, name='login'),
+    path('api/logout/', views.logout_view, name='logout'),
+    path('api/users/auth/', views.UserViewSet.as_view({'post': 'create'}), name='user-register'),
+    path('api/users/profile/', views.UserViewSet.as_view({'put': 'profile'}), name='user-profile'),
+    path('api/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('admin/', admin.site.urls),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('api/csrf/', views.get_csrf_token),
+    path('api/users/check/', views.check_session)
 ]
