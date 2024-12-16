@@ -542,7 +542,11 @@ def login_view(request):
     if user is not None:
         random_key = str(uuid.uuid4())
         session_storage.set(random_key, username)
-        response = JsonResponse({"status": "ok", "username": username})
+        response = JsonResponse({
+            "status": "ok",
+            "username": username,
+            "is_staff": user.is_staff  # Include the is_staff flag
+        })
         response.set_cookie("session_id", random_key)
         return response
     else:
@@ -570,6 +574,11 @@ def check_session(request):
         if username:
             if isinstance(username, bytes):
                 username = username.decode('utf-8')
-            return JsonResponse({"status": "ok", "username": username})
+            user = CustomUser.objects.get(email=username)
+            return JsonResponse({
+                "status": "ok",
+                "username": username,
+                "is_staff": user.is_staff  # Include the is_staff flag
+            })
 
     return JsonResponse({"status": "error", "message": "Invalid session"})

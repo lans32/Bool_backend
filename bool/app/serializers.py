@@ -42,11 +42,6 @@ class AskCompactSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ask
         fields = ['id', 'status', 'created_at', 'formed_at', 'completed_at', 'creator', 'moderator', 'first_operand']
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email']
         
 class UserSerializer(serializers.ModelSerializer):
     is_staff = serializers.BooleanField(default=False, required=False)
