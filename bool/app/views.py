@@ -279,7 +279,7 @@ class AskList(APIView):
 
         if user.is_authenticated:
             if user.is_staff:
-                asks = self.model_class.objects.all()
+                asks = self.model_class.objects.exclude(status__in=['dr', 'del'])
             else:
                 asks = self.model_class.objects.filter(creator=user).exclude(status__in=['dr', 'del'])
         else:
@@ -343,11 +343,23 @@ class AskDetail(APIView):
         else:
             print("No valid session found.")
             request.user = None
+
+        # Если пользователь является сотрудником (isStaff = true), разрешаем доступ к любому сражению
+        if request.user and request.user.is_staff and ask.status != 'dr':
+            # Сотрудники могут видеть все сражения
+            serializer = self.serializer_class(ask, context={'is_ask': True})
+            data = serializer.data
+            data['creator'] = ask.creator.email
+            if ask.moderator:
+                data['moderator'] = ask.moderator.email
+            return Response(data)
+        
         if ask.status == 'del' or ask.creator != request.user:
             return Response({"detail": "Эта заявка удалена или недоступна для просмотра."}, status=403)
-        serializer = self.serializer_class(ask)
+        #serializer = self.serializer_class(ask)
+        
+        serializer = self.serializer_class(ask, context={'is_ask': True})
         data = serializer.data
-        print(ask.creator)
         data['creator'] = ask.creator.email
         if ask.moderator:
             data['moderator'] = ask.moderator.email
@@ -405,7 +417,7 @@ class AskDetail(APIView):
     def put_moderator(self, request, pk):
         ask = get_object_or_404(self.model_class, pk=pk)
         user = request.user
-        
+
         if 'status' in request.data:
             status_value = request.data['status']
 
@@ -414,10 +426,12 @@ class AskDetail(APIView):
                 if ask.status != 'f':
                     return Response({"error": "Заявка должна быть сначала сформирована."}, status=status.HTTP_403_FORBIDDEN)
 
+                # Инициализация updated_data
+                updated_data = request.data.copy()
+
                 if status_value == 'c':
                     ask.completed_at = timezone.now()
-                    updated_data = request.data.copy()
-
+                
                 serializer = self.serializer_class(ask, data=updated_data, partial=True)
                 if serializer.is_valid():
                     serializer.save(moderator=user)
@@ -425,6 +439,7 @@ class AskDetail(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"error": "Модератор может только завершить или отклонить заявку."}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @swagger_auto_schema(request_body=serializer_class)
     def put_edit(self, request, pk):
@@ -545,7 +560,7 @@ def login_view(request):
         response = JsonResponse({
             "status": "ok",
             "username": username,
-            "is_staff": user.is_staff  # Include the is_staff flag
+            "is_staff": user.is_staff
         })
         response.set_cookie("session_id", random_key)
         return response
@@ -578,7 +593,7 @@ def check_session(request):
             return JsonResponse({
                 "status": "ok",
                 "username": username,
-                "is_staff": user.is_staff  # Include the is_staff flag
+                "is_staff": user.is_staff
             })
 
-    return JsonResponse({"status": "error", "message": "Invalid session"})
+    return JsonResponse({"status": "error", "message": "Invalid session"}) 
